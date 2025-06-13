@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC VR Camera Stream</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 50px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+            width: 90%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 1.2em;
+            line-height: 1.6;
+        }
+        
+        .device-selection {
+            display: flex;
+            justify-content: space-around;
+            gap: 30px;
+            margin-top: 40px;
+        }
+        
+        .device-card {
+            flex: 1;
+            background: #fff;
+            border: 3px solid #e0e0e0;
+            border-radius: 15px;
+            padding: 30px 20px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+        }
+        
+        .device-card:hover {
+            border-color: #667eea;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.2);
+        }
+        
+        .device-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+        
+        .device-title {
+            font-size: 1.4em;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .device-description {
+            color: #666;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+        
+        .instructions {
+            margin-top: 40px;
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .instructions h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .instructions ol {
+            text-align: left;
+            color: #555;
+            line-height: 1.6;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        
+        @media (max-width: 600px) {
+            .device-selection {
+                flex-direction: column;
+                gap: 20px;
+            }
+            
+            .container {
+                padding: 30px 20px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 VR Camera Stream</h1>
+        <p class="subtitle">Stream your mobile camera to Meta Quest 2 in real-time with VR controller support</p>
+        
+        <div class="device-selection">
+            <a href="/mobile.html" class="device-card">
+                <div class="device-icon">📱</div>
+                <div class="device-title">Mobile Device</div>
+                <div class="device-description">
+                    Use this on your phone to start camera streaming
+                </div>
+            </a>
+            
+            <a href="/vr.html" class="device-card">
+                <div class="device-icon">🥽</div>
+                <div class="device-title">Meta Quest 2</div>
+                <div class="device-description">
+                    Open this in your VR browser to receive the stream
+                </div>
+            </a>
+        </div>
+        
+        <div class="instructions">
+            <h3>📋 How to Use:</h3>
+            <ol>
+                <li><strong>On your mobile device:</strong> Open the "Mobile Device" link and grant camera permissions</li>
+                <li><strong>On your Meta Quest 2:</strong> Open the VR browser and navigate to this same URL, then click "Meta Quest 2"</li>
+                <li><strong>Connect:</strong> On mobile, tap "Start Camera" then "Connect to VR"</li>
+                <li><strong>Enjoy:</strong> Your mobile camera will stream to VR, and controller presses will show on mobile</li>
+            </ol>
+        </div>
+    </div>
+</body>
+</html>
