@@ -6,310 +6,237 @@
     <title>VR Camera Viewer</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.4.0/aframe.min.js"></script>
     <style>
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-        }
-        
-        .overlay {
-            position: fixed;
-            top: 20px;
-            left: 20px;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 15px;
-            border-radius: 10px;
-            z-index: 1000;
-            font-size: 14px;
-            max-width: 300px;
-        }
-        
-        .status {
-            margin-bottom: 10px;
-            font-weight: bold;
-        }
-        
-        .status.connected {
-            color: #4CAF50;
-        }
-        
-        .status.connecting {
-            color: #FF9800;
-        }
-        
-        .status.error {
-            color: #F44336;
-        }
-        
-        .controller-info {
-            font-size: 12px;
-            font-family: monospace;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 8px;
-            border-radius: 5px;
-            margin-top: 10px;
-        }
-        
-        .button-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 5px;
-            margin-top: 8px;
-        }
-        
-        .button-status {
-            padding: 4px;
-            border-radius: 3px;
-            text-align: center;
-            font-size: 10px;
-            background: rgba(255, 255, 255, 0.1);
-        }
-        
-        .button-status.pressed {
-            background: #4CAF50;
-            color: white;
-        }
+        body { margin: 0; font-family: Arial, sans-serif; }
+        .overlay { position: fixed; top: 20px; left: 20px; background: rgba(0, 0, 0, 0.8); color: white; padding: 15px; border-radius: 10px; z-index: 1000; font-size: 14px; max-width: 300px; }
+        .status { margin-bottom: 10px; font-weight: bold; }
+        .status.connected { color: #4CAF50; }
+        .status.connecting { color: #FF9800; }
+        .status.error { color: #F44336; }
+        .controller-info { font-size: 12px; font-family: monospace; background: rgba(255, 255, 255, 0.1); padding: 8px; border-radius: 5px; margin-top: 10px; }
+        .button-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 8px; }
+        .button-status { padding: 4px; border-radius: 3px; text-align: center; font-size: 10px; background: rgba(255, 255, 255, 0.1); }
+        .button-status.pressed { background: #4CAF50; color: white; }
     </style>
 </head>
 <body>
     <div class="overlay">
-        <div id="status" class="status">Waiting for mobile connection...</div>
+        <div id="statusDiv" class="status">Waiting for mobile connection...</div> <!-- Renamed id -->
         <div class="controller-info">
             <div>VR Controllers Status:</div>
             <div id="leftController">
                 <strong>Left Controller:</strong>
                 <div class="button-grid">
-                    <div id="left-trigger" class="button-status">Trigger</div>
-                    <div id="left-grip" class="button-status">Grip</div>
-                    <div id="left-touchpad" class="button-status">Touchpad</div>
-                    <div id="left-menu" class="button-status">Menu</div>
+                    <div id="left-trigger" class="button-status">Trigger</div> <div id="left-grip" class="button-status">Grip</div>
+                    <div id="left-touchpad" class="button-status">Touchpad</div> <div id="left-menu" class="button-status">Menu</div>
                 </div>
             </div>
             <div id="rightController" style="margin-top: 10px;">
                 <strong>Right Controller:</strong>
                 <div class="button-grid">
-                    <div id="right-trigger" class="button-status">Trigger</div>
-                    <div id="right-grip" class="button-status">Grip</div>
-                    <div id="right-touchpad" class="button-status">Touchpad</div>
-                    <div id="right-system" class="button-status">System</div>
+                    <div id="right-trigger" class="button-status">Trigger</div> <div id="right-grip" class="button-status">Grip</div>
+                    <div id="right-touchpad" class="button-status">Touchpad</div> <div id="right-system" class="button-status">System</div>
                 </div>
             </div>
         </div>
     </div>
 
     <a-scene embedded style="height: 100vh; width: 100vw;" vr-mode-ui="enabled: true">
-        <!-- Assets -->
-        <a-assets>
-            <video id="videoStream" autoplay playsinline crossorigin="anonymous"></video>
-        </a-assets>
-        
-        <!-- Camera rig -->
+        <a-assets> <video id="videoStream" autoplay playsinline crossorigin="anonymous" style="background: #000;"></video> </a-assets>
         <a-entity id="cameraRig">
             <a-camera look-controls wasd-controls position="0 1.6 3">
-                <a-cursor color="white" opacity="0.8" 
-                         animation__click="property: scale; startEvents: click; from: 0.1 0.1 0.1; to: 1 1 1; dur: 150"
-                         animation__fusing="property: scale; startEvents: fusing; from: 1 1 1; to: 0.1 0.1 0.1; dur: 1500">
-                </a-cursor>
+                <a-cursor color="white" opacity="0.8" animation__click="property: scale; startEvents: click; from: 0.1 0.1 0.1; to: 1 1 1; dur: 150" animation__fusing="property: scale; startEvents: fusing; from: 1 1 1; to: 0.1 0.1 0.1; dur: 1500"></a-cursor>
             </a-camera>
-            
-            <!-- Left controller -->
-            <a-entity id="leftControllerEntity" 
-                      hand-controls="hand: left; handModelStyle: lowPoly; color: #ffcccc"
-                      controller-listener="hand: left">
-            </a-entity>
-            
-            <!-- Right controller -->
-            <a-entity id="rightControllerEntity" 
-                      hand-controls="hand: right; handModelStyle: lowPoly; color: #ccffcc"
-                      controller-listener="hand: right">
-            </a-entity>
+            <a-entity id="leftControllerEntity" hand-controls="hand: left; handModelStyle: lowPoly; color: #ffcccc" controller-listener="hand: left"></a-entity>
+            <a-entity id="rightControllerEntity" hand-controls="hand: right; handModelStyle: lowPoly; color: #ccffcc" controller-listener="hand: right"></a-entity>
         </a-entity>
-        
-        <!-- Video screen -->
-        <a-plane id="videoScreen" 
-                 position="0 2 -4" 
-                 width="6" 
-                 height="3.375" 
-                 material="src: #videoStream; transparent: true"
-                 visible="false">
-        </a-plane>
-        
-        <!-- Environment -->
+        <a-plane id="videoScreen" position="0 2 -4" width="6" height="3.375" material="shader: flat; src: #videoStream;" visible="false"></a-plane> <!-- Using shader: flat for unlit video -->
         <a-sky color="#001122"></a-sky>
         <a-plane position="0 0 -8" rotation="-90 0 0" width="20" height="20" color="#003300" opacity="0.5"></a-plane>
-        
-        <!-- Lighting -->
-        <a-light type="ambient" color="#404040" intensity="0.4"></a-light>
-        <a-light type="directional" position="2 4 2" color="#ffffff" intensity="0.8"></a-light>
-        
-        <!-- Instructions text -->
-        <a-text id="instructions" 
-                position="0 3.5 -4" 
-                align="center" 
-                value="Connect your mobile device to start streaming"
-                color="white" 
-                width="8">
-        </a-text>
+        <a-light type="ambient" color="#888"></a-light>
+        <a-light type="directional" position="1 1 1" intensity="0.5"></a-light>
+        <a-text id="instructionsText" position="0 3.5 -4" align="center" value="Connect your mobile device to start streaming" color="white" width="8" visible="true"></a-text> <!-- Renamed id -->
     </a-scene>
 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
-        // Register A-Frame component for controller listening
         AFRAME.registerComponent('controller-listener', {
-            schema: {
-                hand: {type: 'string'}
-            },
-            
+            schema: { hand: {type: 'string'} },
             init: function () {
-                const el = this.el;
-                const hand = this.data.hand;
-                
-                // Button mappings
+                const el = this.el; const hand = this.data.hand;
                 const buttons = ['trigger', 'grip', 'touchpad', hand === 'left' ? 'menu' : 'system'];
-                
-                el.addEventListener('loaded', () => {
-                    // Listen for button events
+                // el.addEventListener('loaded', () => { // Not strictly needed for event listeners on the entity itself
                     buttons.forEach(button => {
-                        el.addEventListener(`${button}down`, (evt) => {
-                            this.sendControllerEvent(hand, button, true);
-                            this.updateButtonStatus(hand, button, true);
-                        });
-                        
-                        el.addEventListener(`${button}up`, (evt) => {
-                            this.sendControllerEvent(hand, button, false);
-                            this.updateButtonStatus(hand, button, false);
-                        });
+                        el.addEventListener(`${button}down`, (evt) => { this.sendControllerEvent(hand, button, true); this.updateButtonStatus(hand, button, true); });
+                        el.addEventListener(`${button}up`, (evt) => { this.sendControllerEvent(hand, button, false); this.updateButtonStatus(hand, button, false); });
                     });
-                });
+                // });
             },
-            
-            sendControllerEvent: function(controller, button, pressed) {
-                socket.emit('vr-controller', {
-                    controller: controller,
-                    button: button,
-                    pressed: pressed,
-                    timestamp: Date.now()
-                });
-            },
-            
+            sendControllerEvent: function(controller, button, pressed) { socket.emit('vr-controller', { controller, button, pressed, timestamp: Date.now() }); },
             updateButtonStatus: function(hand, button, pressed) {
-                const elementId = `${hand}-${button}`;
-                const element = document.getElementById(elementId);
-                if (element) {
-                    if (pressed) {
-                        element.classList.add('pressed');
-                    } else {
-                        element.classList.remove('pressed');
-                    }
-                }
+                const element = document.getElementById(`${hand}-${button}`);
+                if (element) { element.classList.toggle('pressed', pressed); }
             }
         });
         
-        // Socket.IO setup
         const socket = io();
         const videoElement = document.getElementById('videoStream');
         const videoScreen = document.getElementById('videoScreen');
-        const instructions = document.getElementById('instructions');
-        const status = document.getElementById('status');
+        const instructionsText = document.getElementById('instructionsText'); // Renamed
+        const statusDiv = document.getElementById('statusDiv'); // Renamed
         
         let peerConnection = null;
-        
-        // WebRTC configuration
         const rtcConfig = {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
-            ]
+            iceServers: [ { urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' } ]
         };
         
-        // Socket events
         socket.on('connect', () => {
-            console.log('Connected to server');
+            console.log('Connected to server, ID:', socket.id);
             socket.emit('register-device', 'vr');
+            updateStatus('Connected to server. Waiting for mobile.', 'connected');
         });
         
         socket.on('offer', async (data) => {
-            console.log('Received offer from mobile');
-            updateStatus('Connecting to mobile...', 'connecting');
+            console.log('Received offer from mobile:', data);
+            updateStatus('Received offer. Connecting...', 'connecting');
+
+            if (!data || !data.offer) {
+                console.error('Invalid offer data received:', data);
+                updateStatus('Connection failed: Invalid offer', 'error');
+                return;
+            }
             
             try {
-                // Create peer connection
+                if (peerConnection) {
+                    peerConnection.close(); // Close any existing connection
+                }
                 peerConnection = new RTCPeerConnection(rtcConfig);
+                setupPeerConnectionEvents(peerConnection, 'VR'); // Use the same setup function
                 
-                // Handle incoming stream
                 peerConnection.ontrack = (event) => {
-                    console.log('Received remote stream');
-                    videoElement.srcObject = event.streams[0];
-                    
-                    videoElement.onloadedmetadata = () => {
-                        videoScreen.setAttribute('visible', true);
-                        instructions.setAttribute('visible', false);
-                        updateStatus('Connected! Stream active', 'connected');
-                    };
-                };
-                
-                // Handle ICE candidates
-                peerConnection.onicecandidate = (event) => {
-                    if (event.candidate) {
-                        socket.emit('ice-candidate', { candidate: event.candidate });
+                    console.log('Remote track received:', event.track, event.streams);
+                    if (event.streams && event.streams[0]) {
+                        videoElement.srcObject = event.streams[0];
+                    } else { // Fallback for older browsers
+                        const newStream = new MediaStream();
+                        newStream.addTrack(event.track);
+                        videoElement.srcObject = newStream;
                     }
+                    
+                    videoElement.play().then(() => {
+                        console.log('Video playback started.');
+                        videoScreen.setAttribute('visible', true);
+                        instructionsText.setAttribute('visible', false);
+                        // Status will be updated by onconnectionstatechange
+                    }).catch(error => {
+                        console.error('Error playing video:', error);
+                        updateStatus(`Error playing video: ${error.message}`, 'error');
+                    });
                 };
                 
-                // Set remote description and create answer
-                await peerConnection.setRemoteDescription(data.offer);
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                console.log('Remote description (offer) set successfully.');
+
                 const answer = await peerConnection.createAnswer();
-                await peerConnection.setLocalDescription(answer);
-                
-                socket.emit('answer', { answer });
+                await peerConnection.setLocalDescription(new RTCSessionDescription(answer));
+                console.log('Local description (answer) set. Sending answer to mobile.');
+                socket.emit('answer', { answer: answer }); // Send the answer object directly
                 
             } catch (error) {
                 console.error('Error handling offer:', error);
-                updateStatus('Connection failed', 'error');
+                updateStatus(`Connection failed: ${error.message}`, 'error');
             }
         });
         
         socket.on('ice-candidate', async (data) => {
-            if (peerConnection) {
-                try {
-                    await peerConnection.addIceCandidate(data.candidate);
-                } catch (error) {
-                    console.error('Error adding ICE candidate:', error);
-                }
+            console.log('Received ICE candidate from mobile:', data);
+            if (!peerConnection) {
+                console.error('peerConnection is not initialized on ice-candidate.');
+                return;
+            }
+             if (!data || !data.candidate) {
+                console.error('Invalid ICE candidate data received:', data);
+                return;
+            }
+            try {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+                console.log('Added ICE candidate from mobile.');
+            } catch (error) {
+                console.error('Error adding ICE candidate from mobile:', error);
             }
         });
         
         function updateStatus(message, type = '') {
-            status.textContent = message;
-            status.className = `status ${type}`;
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
         }
-        
-        // Handle WebRTC connection state changes
-        function setupConnectionMonitoring() {
-            if (peerConnection) {
-                peerConnection.onconnectionstatechange = () => {
-                    const state = peerConnection.connectionState;
-                    console.log('Connection state:', state);
-                    
-                    switch (state) {
-                        case 'connected':
-                            updateStatus('Connected! Stream active', 'connected');
-                            break;
-                        case 'disconnected':
-                        case 'failed':
-                            updateStatus('Connection lost', 'error');
-                            videoScreen.setAttribute('visible', false);
-                            instructions.setAttribute('visible', true);
-                            instructions.setAttribute('value', 'Connection lost. Please reconnect mobile device.');
-                            break;
-                    }
-                };
-            }
+
+        // Shared peer connection event setup logic (can be copied from mobile.html or placed in a shared script if refactoring)
+        function setupPeerConnectionEvents(pc, peerName) {
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    console.log(`${peerName}: New ICE candidate:`, event.candidate);
+                    socket.emit('ice-candidate', { candidate: event.candidate });
+                } else {
+                    console.log(`${peerName}: All ICE candidates have been sent.`);
+                }
+            };
+
+            pc.oniceconnectionstatechange = () => {
+                console.log(`${peerName}: ICE connection state change: ${pc.iceConnectionState}`);
+                updateStatus(`${peerName} ICE: ${pc.iceConnectionState}`, 'connecting');
+                 if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed') {
+                    updateStatus(`${peerName} ICE connection ${pc.iceConnectionState}. Check network/firewall.`, 'error');
+                    videoScreen.setAttribute('visible', false);
+                    instructionsText.setAttribute('value', `Stream disconnected (ICE: ${pc.iceConnectionState})`);
+                    instructionsText.setAttribute('visible', true);
+                }
+                 if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+                    updateStatus(`${peerName} ICE connected.`, 'connected');
+                }
+            };
+
+            pc.onconnectionstatechange = () => {
+                console.log(`${peerName}: Connection state change: ${pc.connectionState}`);
+                switch (pc.connectionState) {
+                    case 'connected':
+                        updateStatus(`${peerName} connected to peer! Stream active.`, 'connected');
+                        videoScreen.setAttribute('visible', true);
+                        instructionsText.setAttribute('visible', false);
+                        break;
+                    case 'disconnected':
+                    case 'failed':
+                    case 'closed':
+                        updateStatus(`${peerName} connection ${pc.connectionState}.`, 'error');
+                        videoScreen.setAttribute('visible', false);
+                        instructionsText.setAttribute('value', `Stream ${pc.connectionState}. Reconnect mobile.`);
+                        instructionsText.setAttribute('visible', true);
+                        if (peerConnection && pc.connectionState !== 'closed') { // Attempt to close if not already closed
+                             // peerConnection.close(); // Careful with auto-closing, might interfere with retries
+                        }
+                        break;
+                }
+            };
+
+            pc.onsignalingstatechange = () => {
+                console.log(`${peerName}: Signaling state change: ${pc.signalingState}`);
+            };
+
+            pc.ontrack = (event) => { // This is the primary way to get remote tracks
+                console.log(`${peerName}: Remote track received (ontrack event):`, event.track, event.streams);
+                if (event.streams && event.streams[0]) {
+                    videoElement.srcObject = event.streams[0];
+                } else {
+                    const newStream = new MediaStream();
+                    newStream.addTrack(event.track);
+                    videoElement.srcObject = newStream;
+                }
+                videoElement.play().then(() => {
+                    console.log('Video playback started via ontrack.');
+                    videoScreen.setAttribute('visible', true);
+                    instructionsText.setAttribute('visible', false);
+                }).catch(error => console.error('Error playing video via ontrack:', error));
+            };
         }
-        
-        // Set up connection monitoring when peer connection is created
-        socket.on('offer', () => {
-            setTimeout(setupConnectionMonitoring, 1000);
-        });
     </script>
 </body>
 </html>
