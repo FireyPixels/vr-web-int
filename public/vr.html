@@ -1,54 +1,447 @@
-<!-- vr.html -->
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>VR Test Connection</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>VR Camera Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.5.0/aframe.min.js"></script> <!-- Updated A-Frame -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script> <!-- Updated Socket.IO -->
     <style>
-        body { font-family: sans-serif; padding: 20px; font-size: 2em; }
-        .status { padding: 10px; border: 1px solid #ccc; margin-top: 10px; }
-        .error { background-color: #ffdddd; border-left: 5px solid red; }
-        .success { background-color: #ddffdd; border-left: 5px solid green; }
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #111; /* Dark background for VR */
+            color: #fff;
+            overflow: hidden; /* Prevent scrollbars */
+        }
+
+        .debug-overlay {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.75);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            z-index: 10000; /* Ensure it's on top */
+            font-size: 14px;
+            max-width: 350px;
+            border: 1px solid #444;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .status-line {
+            margin-bottom: 8px;
+            font-weight: bold;
+            padding: 5px;
+            border-radius: 4px;
+        }
+
+        .status-line.connected { color: #4CAF50; background-color: rgba(76, 175, 80, 0.1); }
+        .status-line.connecting { color: #FFC107; background-color: rgba(255, 193, 7, 0.1); }
+        .status-line.error { color: #F44336; background-color: rgba(244, 67, 54, 0.1); }
+        .status-line.info { color: #2196F3; background-color: rgba(33, 150, 243, 0.1); }
+
+
+        .controller-info {
+            font-size: 12px;
+            font-family: monospace;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        .button-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .button-status {
+            padding: 5px;
+            border-radius: 3px;
+            text-align: center;
+            font-size: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            transition: background-color 0.1s, color 0.1s;
+        }
+
+        .button-status.pressed {
+            background: #4CAF50;
+            color: white;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
-    <h1>VR Device Socket.IO Test</h1>
-    <div id="statusDiv" class="status">Attempting to connect...</div>
+    <!-- Debugging Overlay UI -->
+    <div class="debug-overlay">
+        <div id="connectionStatus" class="status-line info">Initializing...</div>
+        <div id="webrtcStatus" class="status-line info">WebRTC Idle</div>
+        <div class="controller-info">
+            <div>VR Controllers:</div>
+            <div id="leftControllerStatus" style="margin-top: 5px;">
+                <strong>Left:</strong>
+                <div class="button-grid">
+                    <div id="left-trigger" class="button-status">Trigger</div>
+                    <div id="left-grip" class="button-status">Grip</div>
+                    <div id="left-primary" class="button-status">X/Y</div> <!-- X/Y or Primary -->
+                    <div id="left-secondary" class="button-status">Menu</div> <!-- Menu or Secondary -->
+                </div>
+            </div>
+            <div id="rightControllerStatus" style="margin-top: 10px;">
+                <strong>Right:</strong>
+                <div class="button-grid">
+                    <div id="right-trigger" class="button-status">Trigger</div>
+                    <div id="right-grip" class="button-status">Grip</div>
+                    <div id="right-primary" class="button-status">A/B</div> <!-- A/B or Primary -->
+                    <div id="right-secondary" class="button-status">System</div> <!-- System or Secondary -->
+                </div>
+            </div>
+        </div>
+    </div>
 
-    <script src="/socket.io/socket.io.js"></script>
+    <!-- A-Frame Scene -->
+    <a-scene embedded vr-mode-ui="enabled: true; enterVRButton: #myEnterVRButton">
+        <!-- Custom Enter VR Button (optional, A-Frame provides one) -->
+        <!-- <button id="myEnterVRButton" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 10001;">Enter VR</button> -->
+
+        <a-assets>
+            <video id="videoStream" autoplay playsinline muted crossorigin="anonymous" style="display:none;"></video>
+            <!-- Muted initially on the video tag itself. Unmute via JS if audio is desired and autoplay policies allow. -->
+        </a-assets>
+
+        <a-entity id="cameraRig" position="0 0 0">
+            <a-camera id="camera" position="0 1.6 0" look-controls wasd-controls="enabled: false">
+                <!-- Cursor for interacting with A-Frame elements if any -->
+                <a-cursor color="#CCC" fuse="true" fuse-timeout="1500"></a-cursor>
+            </a-camera>
+
+            <a-entity id="leftController"
+                      oculus-touch-controls="hand: left; model: true"
+                      laser-controls="hand: left"
+                      custom-controller-listener="hand: left">
+            </a-entity>
+            <a-entity id="rightController"
+                      oculus-touch-controls="hand: right; model: true"
+                      laser-controls="hand: right"
+                      custom-controller-listener="hand: right">
+            </a-entity>
+        </a-entity>
+
+        <!-- Video Screen in VR -->
+        <a-plane id="videoScreen"
+                 position="0 1.8 -2.5"
+                 width="3.2"
+                 height="1.8"
+                 material="shader: flat; src: #videoStream; transparent: true; side: double;"
+                 visible="false">
+        </a-plane>
+
+        <!-- Instructions Text (initially visible) -->
+        <a-text id="instructionText"
+                value="Waiting for Mobile Connection...\nPoint mobile device to this URL and connect."
+                position="0 2.2 -2.5"
+                align="center"
+                color="white"
+                width="3"
+                wrap-count="40"
+                visible="true">
+        </a-text>
+
+        <!-- Basic Environment -->
+        <a-sky color="#222"></a-sky>
+        <a-plane position="0 0 -3" rotation="-90 0 0" width="10" height="10" color="#333" shadow></a-plane>
+
+        <!-- Lighting -->
+        <a-light type="ambient" color="#888"></a-light>
+        <a-light type="directional" color="#FFF" intensity="0.6" position="-0.5 1 1"></a-light>
+    </a-scene>
+
     <script>
-        const statusDiv = document.getElementById('statusDiv');
+        // --- Global Variables ---
+        const CON_STATUS_DIV = document.getElementById('connectionStatus');
+        const RTC_STATUS_DIV = document.getElementById('webrtcStatus');
+        const VIDEO_ELEMENT = document.getElementById('videoStream');
+        const VIDEO_SCREEN_ENTITY = document.getElementById('videoScreen');
+        const INSTRUCTION_TEXT_ENTITY = document.getElementById('instructionText');
 
-        function updateStatus(message, isError = false) {
-            console.log("VR_TEST: " + message);
-            statusDiv.textContent = message;
-            statusDiv.className = 'status ' + (isError ? 'error' : 'success');
+        let socket;
+        let peerConnection;
+        let isRTCConnected = false;
+
+        const RTC_CONFIG = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                // Add TURN server if STUN is not enough for your network:
+                // {
+                //   urls: 'turn:your.turn.server.com:3478',
+                //   username: 'your_username',
+                //   credential: 'your_password'
+                // }
+            ]
+        };
+
+        // --- Utility Functions ---
+        function updateConnectionStatus(message, type = 'info') {
+            console.log(`[SocketIO Status] ${message}`);
+            CON_STATUS_DIV.textContent = message;
+            CON_STATUS_DIV.className = `status-line ${type}`;
         }
 
-        try {
-            // Ensure the URL for io() is correct if your server is on a different domain/port for socket.io
-            // If server.js and vr.html are served from the same origin, io() is fine.
-            // Otherwise, use io('http://<SERVER_IP>:3000');
-            const socket = io(); // Or explicitly: const socket = io('http://YOUR_SERVER_IP:3000');
+        function updateRTCStatus(message, type = 'info') {
+            console.log(`[WebRTC Status] ${message}`);
+            RTC_STATUS_DIV.textContent = message;
+            RTC_STATUS_DIV.className = `status-line ${type}`;
+        }
 
+        // --- A-Frame Controller Component ---
+        AFRAME.registerComponent('custom-controller-listener', {
+            schema: { hand: { type: 'string', default: 'none' } },
+            init: function () {
+                const el = this.el;
+                const hand = this.data.hand;
+                // Oculus Touch/Meta Quest controller button names. Adjust if needed for other controllers.
+                // Standard events: triggerdown/up, gripdown/up
+                // Oculus specific: abuttondown/up, bbuttondown/up (right), xbuttondown/up, ybuttondown/up (left)
+                // thumbstickdown/up (pressing the stick)
+                // trackpaddown/up (if applicable)
+                // menudown/up (often left controller's top button)
+                // systemdown/up (often right controller's Oculus button, might be restricted)
+
+                const buttonEvents = ['trigger', 'grip'];
+                if (hand === 'left') {
+                    buttonEvents.push('xbutton', 'ybutton', 'thumbstick', 'menu'); // xbutton, ybutton often map to primary/secondary
+                } else if (hand === 'right') {
+                    buttonEvents.push('abutton', 'bbutton', 'thumbstick', 'system'); // abutton, bbutton often map to primary/secondary
+                }
+
+
+                buttonEvents.forEach(baseEventName => {
+                    el.addEventListener(`${baseEventName}down`, (evt) => this.handleButton(hand, baseEventName, true, evt));
+                    el.addEventListener(`${baseEventName}up`, (evt) => this.handleButton(hand, baseEventName, false, evt));
+                });
+                console.log(`[Controller] Initialized listener for ${hand} hand.`);
+            },
+            handleButton: function (hand, buttonName, isPressed, evt) {
+                console.log(`[Controller] ${hand} hand: ${buttonName} ${isPressed ? 'pressed' : 'released'}`);
+                if (socket && socket.connected) {
+                    socket.emit('vr-controller', {
+                        controller: hand,
+                        button: buttonName,
+                        pressed: isPressed,
+                        timestamp: Date.now()
+                    });
+                }
+                this.updateButtonUIDisplay(hand, buttonName, isPressed);
+            },
+            updateButtonUIDisplay: function(hand, button, pressed) {
+                let uiButtonId;
+                // Simplified mapping for UI
+                if (button.includes('trigger')) uiButtonId = `${hand}-trigger`;
+                else if (button.includes('grip')) uiButtonId = `${hand}-grip`;
+                else if (hand === 'left' && (button.includes('xbutton') || button.includes('ybutton') || button.includes('thumbstick'))) uiButtonId = `${hand}-primary`; // Simplified
+                else if (hand === 'left' && button.includes('menu')) uiButtonId = `${hand}-secondary`;
+                else if (hand === 'right' && (button.includes('abutton') || button.includes('bbutton') || button.includes('thumbstick'))) uiButtonId = `${hand}-primary`; // Simplified
+                else if (hand === 'right' && button.includes('system')) uiButtonId = `${hand}-secondary`;
+
+
+                const element = document.getElementById(uiButtonId);
+                if (element) {
+                    element.classList.toggle('pressed', pressed);
+                }
+            }
+        });
+
+
+        // --- WebRTC Logic ---
+        function createPeerConnection() {
+            if (peerConnection) {
+                console.log('[WebRTC] Closing existing peer connection.');
+                peerConnection.close();
+            }
+            peerConnection = new RTCPeerConnection(RTC_CONFIG);
+            console.log('[WebRTC] RTCPeerConnection created.');
+            updateRTCStatus('PeerConnection created', 'info');
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    console.log('[WebRTC] New ICE candidate from VR:', event.candidate);
+                    if (socket && socket.connected) {
+                        socket.emit('ice-candidate', { candidate: event.candidate });
+                    }
+                } else {
+                    console.log('[WebRTC] All ICE candidates have been sent from VR.');
+                }
+            };
+
+            peerConnection.oniceconnectionstatechange = () => {
+                const state = peerConnection ? peerConnection.iceConnectionState : 'closed';
+                console.log(`[WebRTC] ICE Connection State: ${state}`);
+                updateRTCStatus(`ICE: ${state}`, state === 'connected' || state === 'completed' ? 'connected' : (state === 'failed' || state === 'disconnected' ? 'error' : 'connecting'));
+
+                if (state === 'failed' || state === 'disconnected' || state === 'closed') {
+                    handleRTCDisconnect();
+                }
+            };
+
+            peerConnection.onconnectionstatechange = () => {
+                const state = peerConnection ? peerConnection.connectionState : 'closed';
+                console.log(`[WebRTC] Connection State: ${state}`);
+                updateRTCStatus(`Connection: ${state}`, state === 'connected' ? 'connected' : (state === 'failed' || state === 'disconnected' ? 'error' : 'connecting'));
+
+                if (state === 'connected') {
+                    isRTCConnected = true;
+                    VIDEO_SCREEN_ENTITY.setAttribute('visible', true);
+                    INSTRUCTION_TEXT_ENTITY.setAttribute('visible', false);
+                    updateRTCStatus('Stream Connected!', 'connected');
+                } else if (state === 'failed' || state === 'disconnected' || state === 'closed') {
+                    handleRTCDisconnect();
+                }
+            };
+
+            peerConnection.ontrack = (event) => {
+                console.log('[WebRTC] Remote track received:', event.track, event.streams);
+                if (event.streams && event.streams[0]) {
+                    VIDEO_ELEMENT.srcObject = event.streams[0];
+                    VIDEO_ELEMENT.play().then(() => {
+                        console.log('[WebRTC] Video playback started.');
+                        VIDEO_SCREEN_ENTITY.setAttribute('visible', true);
+                        INSTRUCTION_TEXT_ENTITY.setAttribute('visible', false);
+                    }).catch(error => {
+                        console.error('[WebRTC] Error playing video:', error);
+                        updateRTCStatus(`Video play error: ${error.message}`, 'error');
+                        // Attempt to play on user gesture if autoplay fails
+                        document.body.addEventListener('click', () => VIDEO_ELEMENT.play(), { once: true });
+                    });
+                } else {
+                     console.warn('[WebRTC] Track event did not contain streams. This might be an issue.');
+                }
+            };
+            // For debugging, listen to all tracks on the stream
+            if (VIDEO_ELEMENT.srcObject) {
+                VIDEO_ELEMENT.srcObject.getTracks().forEach(track => {
+                    track.onended = () => console.log(`[WebRTC] Track ended: ${track.kind}`);
+                    track.onmute = () => console.log(`[WebRTC] Track muted: ${track.kind}`);
+                    track.onunmute = () => console.log(`[WebRTC] Track unmuted: ${track.kind}`);
+                });
+            }
+        }
+
+        function handleRTCDisconnect() {
+            console.warn('[WebRTC] RTC Connection lost or failed.');
+            isRTCConnected = false;
+            if (VIDEO_ELEMENT) VIDEO_ELEMENT.srcObject = null;
+            if (VIDEO_SCREEN_ENTITY) VIDEO_SCREEN_ENTITY.setAttribute('visible', false);
+            if (INSTRUCTION_TEXT_ENTITY) {
+                INSTRUCTION_TEXT_ENTITY.setAttribute('value', 'Stream Disconnected.\nPlease reconnect mobile.');
+                INSTRUCTION_TEXT_ENTITY.setAttribute('visible', true);
+            }
+            // Optionally, try to re-establish or clean up peerConnection
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null; // Allow re-creation on next offer
+            }
+            updateRTCStatus('Stream Disconnected', 'error');
+        }
+
+
+        // --- Socket.IO Event Handlers ---
+        function setupSocketListeners() {
             socket.on('connect', () => {
-                updateStatus('SUCCESS: Connected to Socket.IO server! Registering as VR...');
+                updateConnectionStatus(`Connected to Server (ID: ${socket.id})`, 'connected');
                 socket.emit('register-device', 'vr');
-                // You should see "Device registered: vr" on your server console now
+                updateRTCStatus('Ready for Mobile Offer', 'info');
             });
 
             socket.on('disconnect', (reason) => {
-                updateStatus(`DISCONNECTED: ${reason}`, true);
+                updateConnectionStatus(`Disconnected from Server: ${reason}`, 'error');
+                handleRTCDisconnect(); // Also treat socket disconnect as RTC disconnect
             });
 
             socket.on('connect_error', (err) => {
-                updateStatus(`CONNECTION ERROR: ${err.message}. Type: ${err.type}. Description: ${err.description}`, true);
-                console.error('VR_TEST: Connection Error details:', err);
+                updateConnectionStatus(`Connection Error: ${err.message}`, 'error');
+                console.error('[SocketIO] Connection Error:', err);
             });
 
-        } catch (e) {
-            updateStatus(`CRITICAL JAVASCRIPT ERROR: ${e.message}`, true);
-            console.error("VR_TEST: Critical JS error: ", e);
+            socket.on('offer', async (data) => {
+                console.log('[SocketIO] Received offer from mobile:', data);
+                if (!data || !data.offer) {
+                    console.error('[SocketIO] Invalid offer data received.');
+                    updateRTCStatus('Invalid offer received', 'error');
+                    return;
+                }
+                updateRTCStatus('Offer received, processing...', 'connecting');
+                createPeerConnection(); // Ensure a fresh peer connection
+
+                try {
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+                    console.log('[WebRTC] Remote description (offer) set successfully.');
+
+                    const answer = await peerConnection.createAnswer();
+                    console.log('[WebRTC] Answer created.');
+
+                    await peerConnection.setLocalDescription(new RTCSessionDescription(answer));
+                    console.log('[WebRTC] Local description (answer) set.');
+
+                    socket.emit('answer', { answer: answer });
+                    console.log('[SocketIO] Answer sent to mobile.');
+                    updateRTCStatus('Answer sent, negotiating...', 'connecting');
+
+                } catch (error) {
+                    console.error('[WebRTC] Error handling offer/creating answer:', error);
+                    updateRTCStatus(`Offer/Answer Error: ${error.message}`, 'error');
+                    handleRTCDisconnect();
+                }
+            });
+
+            socket.on('ice-candidate', async (data) => {
+                console.log('[SocketIO] Received ICE candidate from mobile:', data);
+                if (!peerConnection) {
+                    console.warn('[WebRTC] Received ICE candidate but peerConnection is not ready.');
+                    return;
+                }
+                if (data && data.candidate) {
+                    try {
+                        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+                        console.log('[WebRTC] Added ICE candidate from mobile.');
+                    } catch (error)_ {
+                        console.error('[WebRTC] Error adding ICE candidate from mobile:', error);
+                    }
+                }
+            });
         }
+
+        // --- Initialization ---
+        function init() {
+            updateConnectionStatus('Connecting to server...', 'connecting');
+            // Explicitly define the server URL if not same origin, e.g., io('http://your-server-ip:3000')
+            socket = io({
+                // Consider adding transports for robustness if default (websocket) has issues on Quest
+                // transports: ['websocket', 'polling']
+            });
+            setupSocketListeners();
+
+            // Handle VR mode entry/exit to potentially adjust UI or behavior
+            const sceneEl = document.querySelector('a-scene');
+            sceneEl.addEventListener('enter-vr', () => {
+                console.log("[A-Frame] Entered VR mode.");
+                // You might want to hide the 2D debug overlay in VR if it's obtrusive,
+                // or make it an A-Frame entity instead.
+                // document.querySelector('.debug-overlay').style.display = 'none';
+            });
+            sceneEl.addEventListener('exit-vr', () => {
+                console.log("[A-Frame] Exited VR mode.");
+                // document.querySelector('.debug-overlay').style.display = 'block';
+            });
+        }
+
+        // Start the application
+        window.addEventListener('DOMContentLoaded', init);
+
     </script>
 </body>
 </html>
