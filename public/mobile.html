@@ -5,118 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mobile Camera Stream</title>
     <style>
-        body {
-            margin: 0;
-            padding: 20px;
-            font-family: Arial, sans-serif;
-            background: #1a1a1a;
-            color: white;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-        }
-        
-        .container {
-            max-width: 500px;
-            width: 100%;
-            text-align: center;
-        }
-        
-        h1 {
-            margin-bottom: 30px;
-            color: #4CAF50;
-        }
-        
-        #localVideo {
-            width: 100%;
-            max-width: 400px;
-            border: 2px solid #4CAF50;
-            border-radius: 10px;
-            margin-bottom: 20px;
-        }
-        
-        .controls {
-            margin: 20px 0;
-        }
-        
-        button {
-            background: #4CAF50;
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            margin: 10px;
-            border-radius: 25px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-        
-        button:hover {
-            background: #45a049;
-        }
-        
-        button:disabled {
-            background: #666;
-            cursor: not-allowed;
-        }
-        
-        .status {
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 10px;
-            background: #333;
-            font-weight: bold;
-        }
-        
-        .status.connected {
-            background: #2E7D32;
-        }
-        
-        .status.connecting {
-            background: #F57C00;
-        }
-        
-        .status.error {
-            background: #C62828;
-        }
-        
-        .vr-events {
-            margin-top: 20px;
-            padding: 15px;
-            background: #2a2a2a;
-            border-radius: 10px;
-            text-align: left;
-            max-width: 400px;
-        }
-        
-        .vr-event {
-            padding: 8px;
-            margin: 5px 0;
-            background: #3a3a3a;
-            border-radius: 5px;
-            font-family: monospace;
-            font-size: 12px;
-        }
+        body { margin: 0; padding: 20px; font-family: Arial, sans-serif; background: #1a1a1a; color: white; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        .container { max-width: 500px; width: 100%; text-align: center; }
+        h1 { margin-bottom: 30px; color: #4CAF50; }
+        #localVideo { width: 100%; max-width: 400px; border: 2px solid #4CAF50; border-radius: 10px; margin-bottom: 20px; background: #000; }
+        .controls { margin: 20px 0; }
+        button { background: #4CAF50; color: white; border: none; padding: 15px 30px; margin: 10px; border-radius: 25px; font-size: 16px; cursor: pointer; transition: background 0.3s; }
+        button:hover { background: #45a049; }
+        button:disabled { background: #666; cursor: not-allowed; }
+        .status { margin-top: 20px; padding: 15px; border-radius: 10px; background: #333; font-weight: bold; }
+        .status.connected { background: #2E7D32; }
+        .status.connecting { background: #F57C00; }
+        .status.error { background: #C62828; }
+        .vr-events { margin-top: 20px; padding: 15px; background: #2a2a2a; border-radius: 10px; text-align: left; max-width: 400px; min-height: 50px; overflow-y: auto; max-height: 200px; }
+        .vr-event { padding: 8px; margin: 5px 0; background: #3a3a3a; border-radius: 5px; font-family: monospace; font-size: 12px; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>📱 Mobile Camera Stream</h1>
-        
         <video id="localVideo" autoplay muted playsinline></video>
-        
         <div class="controls">
             <button id="startBtn">Start Camera</button>
             <button id="connectBtn" disabled>Connect to VR</button>
             <button id="stopBtn" disabled>Stop Stream</button>
         </div>
-        
         <div id="status" class="status">Ready to start</div>
-        
         <div class="vr-events">
             <h3>VR Controller Events:</h3>
-            <div id="vrEvents">No events yet...</div>
+            <div id="vrEventsLog">No events yet...</div>
         </div>
     </div>
 
@@ -127,13 +44,12 @@
         const startBtn = document.getElementById('startBtn');
         const connectBtn = document.getElementById('connectBtn');
         const stopBtn = document.getElementById('stopBtn');
-        const status = document.getElementById('status');
-        const vrEvents = document.getElementById('vrEvents');
+        const statusDiv = document.getElementById('status'); // Renamed to avoid conflict
+        const vrEventsLog = document.getElementById('vrEventsLog');
         
         let localStream = null;
         let peerConnection = null;
         
-        // WebRTC configuration
         const rtcConfig = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -141,28 +57,49 @@
             ]
         };
         
-        // Socket events
         socket.on('connect', () => {
-            console.log('Connected to server');
+            console.log('Connected to server, ID:', socket.id);
             socket.emit('register-device', 'mobile');
+            updateStatus('Connected to server. Ready.', 'connected');
         });
         
         socket.on('answer', async (data) => {
-            console.log('Received answer');
+            console.log('Received answer from VR:', data);
+            if (!peerConnection) {
+                console.error('peerConnection is not initialized on answer.');
+                return;
+            }
+            if (!data || !data.answer) {
+                console.error('Invalid answer data received:', data);
+                updateStatus('Connection failed: Invalid answer', 'error');
+                return;
+            }
             try {
-                await peerConnection.setRemoteDescription(data.answer);
-                updateStatus('Connected to VR!', 'connected');
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+                console.log('Remote description (answer) set successfully.');
+                // Status will be updated by onconnectionstatechange
             } catch (error) {
-                console.error('Error setting remote description:', error);
-                updateStatus('Connection failed', 'error');
+                console.error('Error setting remote description (answer):', error);
+                updateStatus(`Connection failed: ${error.message}`, 'error');
+                connectBtn.disabled = false; // Allow retry
             }
         });
         
         socket.on('ice-candidate', async (data) => {
+            console.log('Received ICE candidate from VR:', data);
+            if (!peerConnection) {
+                console.error('peerConnection is not initialized on ice-candidate.');
+                return;
+            }
+            if (!data || !data.candidate) {
+                console.error('Invalid ICE candidate data received:', data);
+                return;
+            }
             try {
-                await peerConnection.addIceCandidate(data.candidate);
+                await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+                console.log('Added ICE candidate from VR.');
             } catch (error) {
-                console.error('Error adding ICE candidate:', error);
+                console.error('Error adding ICE candidate from VR:', error);
             }
         });
         
@@ -170,7 +107,6 @@
             displayVREvent(data);
         });
         
-        // Button events
         startBtn.addEventListener('click', startCamera);
         connectBtn.addEventListener('click', connectToVR);
         stopBtn.addEventListener('click', stopStream);
@@ -178,70 +114,77 @@
         async function startCamera() {
             try {
                 updateStatus('Starting camera...', 'connecting');
+                console.log('Attempting to start camera...');
                 
                 localStream = await navigator.mediaDevices.getUserMedia({
                     video: {
                         width: { ideal: 1280 },
                         height: { ideal: 720 },
-                        facingMode: 'environment' // Use back camera
+                        facingMode: 'environment'
                     },
                     audio: true
                 });
                 
                 localVideo.srcObject = localStream;
+                console.log('Camera stream acquired.');
                 
                 startBtn.disabled = true;
                 connectBtn.disabled = false;
                 stopBtn.disabled = false;
                 
-                updateStatus('Camera started. Ready to connect to VR', 'connected');
+                updateStatus('Camera started. Ready to connect to VR.', 'connected');
             } catch (error) {
                 console.error('Error starting camera:', error);
-                updateStatus('Failed to start camera', 'error');
+                updateStatus(`Failed to start camera: ${error.message}. Check permissions & HTTPS.`, 'error');
             }
         }
         
         async function connectToVR() {
+            if (!localStream) {
+                updateStatus('Camera not started. Please start camera first.', 'error');
+                console.error('Attempted to connect without localStream.');
+                return;
+            }
             try {
                 updateStatus('Connecting to VR...', 'connecting');
+                console.log('Initiating connection to VR...');
                 connectBtn.disabled = true;
                 
-                // Create peer connection
+                if (peerConnection) {
+                    peerConnection.close(); // Close any existing connection
+                }
                 peerConnection = new RTCPeerConnection(rtcConfig);
+                setupPeerConnectionEvents(peerConnection, 'Mobile');
                 
-                // Add local stream
                 localStream.getTracks().forEach(track => {
                     peerConnection.addTrack(track, localStream);
+                    console.log('Added local track:', track.kind);
                 });
                 
-                // Handle ICE candidates
-                peerConnection.onicecandidate = (event) => {
-                    if (event.candidate) {
-                        socket.emit('ice-candidate', { candidate: event.candidate });
-                    }
-                };
-                
-                // Create and send offer
                 const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-                socket.emit('offer', { offer });
+                await peerConnection.setLocalDescription(new RTCSessionDescription(offer));
+                console.log('Local description (offer) set. Sending offer to VR.');
+                socket.emit('offer', { offer: offer }); // Send the offer object directly
                 
             } catch (error) {
                 console.error('Error connecting to VR:', error);
-                updateStatus('Failed to connect to VR', 'error');
-                connectBtn.disabled = false;
+                updateStatus(`Failed to connect to VR: ${error.message}`, 'error');
+                connectBtn.disabled = false; // Allow retry
             }
         }
         
         function stopStream() {
+            console.log('Stopping stream...');
             if (localStream) {
                 localStream.getTracks().forEach(track => track.stop());
                 localStream = null;
+                console.log('Local stream tracks stopped.');
             }
             
             if (peerConnection) {
                 peerConnection.close();
                 peerConnection = null;
+                console.log('Peer connection closed.');
             }
             
             localVideo.srcObject = null;
@@ -250,12 +193,13 @@
             connectBtn.disabled = true;
             stopBtn.disabled = true;
             
-            updateStatus('Stream stopped', '');
+            updateStatus('Stream stopped.', '');
+            vrEventsLog.innerHTML = 'No events yet...';
         }
         
         function updateStatus(message, type = '') {
-            status.textContent = message;
-            status.className = `status ${type}`;
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
         }
         
         function displayVREvent(data) {
@@ -263,16 +207,64 @@
             eventDiv.className = 'vr-event';
             eventDiv.textContent = `${data.controller}: ${data.button} - ${data.pressed ? 'PRESSED' : 'RELEASED'}`;
             
-            if (vrEvents.firstChild.textContent === 'No events yet...') {
-                vrEvents.innerHTML = '';
+            if (vrEventsLog.firstChild && vrEventsLog.firstChild.textContent === 'No events yet...') {
+                vrEventsLog.innerHTML = '';
             }
             
-            vrEvents.insertBefore(eventDiv, vrEvents.firstChild);
+            vrEventsLog.insertBefore(eventDiv, vrEventsLog.firstChild);
             
-            // Keep only last 10 events
-            while (vrEvents.children.length > 10) {
-                vrEvents.removeChild(vrEvents.lastChild);
+            while (vrEventsLog.children.length > 10) {
+                vrEventsLog.removeChild(vrEventsLog.lastChild);
             }
+        }
+
+        function setupPeerConnectionEvents(pc, peerName) {
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    console.log(`${peerName}: New ICE candidate:`, event.candidate);
+                    socket.emit('ice-candidate', { candidate: event.candidate });
+                } else {
+                    console.log(`${peerName}: All ICE candidates have been sent.`);
+                }
+            };
+
+            pc.oniceconnectionstatechange = () => {
+                console.log(`${peerName}: ICE connection state change: ${pc.iceConnectionState}`);
+                updateStatus(`${peerName} ICE: ${pc.iceConnectionState}`, 'connecting');
+                if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'closed') {
+                    updateStatus(`${peerName} ICE connection ${pc.iceConnectionState}. Check network/firewall.`, 'error');
+                    if (peerName === 'Mobile') connectBtn.disabled = false; // Allow retry on mobile
+                }
+                 if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+                    updateStatus(`${peerName} ICE connected.`, 'connected');
+                }
+            };
+
+            pc.onconnectionstatechange = () => {
+                console.log(`${peerName}: Connection state change: ${pc.connectionState}`);
+                switch (pc.connectionState) {
+                    case 'connected':
+                        updateStatus(`${peerName} connected to peer!`, 'connected');
+                        break;
+                    case 'disconnected':
+                    case 'failed':
+                    case 'closed':
+                        updateStatus(`${peerName} connection ${pc.connectionState}.`, 'error');
+                        if (peerName === 'Mobile') connectBtn.disabled = false;
+                        // On VR side, this might trigger showing instructions again
+                        break;
+                }
+            };
+
+            pc.onsignalingstatechange = () => {
+                console.log(`${peerName}: Signaling state change: ${pc.signalingState}`);
+            };
+
+            // For mobile, onnegotiationneeded might be useful for reconnections/updates
+            // pc.onnegotiationneeded = async () => {
+            //     console.log(`${peerName}: Negotiation needed.`);
+            //     // Potentially create and send a new offer if appropriate for the application logic
+            // };
         }
     </script>
 </body>
